@@ -140,8 +140,8 @@ gen_combo_thresh <- function(df_item_thresh, df_thresh){
 
 gen_confMatrix <- function(df_thresh, subscale, thresh_process){
   # Note that tbl list dimension 1 = endorsed_aces ; tbl list dimension 2 = predicted_aces
-  confMatrix <<- as.data.table(table(df_thresh$predicted_ace, df_thresh$endorsed_ace))
-  setnames(confMatrix,c("V1", "V2", "N"), c("Predicted ACE", "Actual ACE", "Number"))
+  confMatrix <<- data.table::as.data.table(table(df_thresh$predicted_ace, df_thresh$endorsed_ace))
+  data.table::setnames(confMatrix,c("V1", "V2", "N"), c("Predicted ACE", "Actual ACE", "Number"))
   
   # print the table
   #full_caption = paste0("Thresholding based on ", thresh_process, " score for ", subscale) #"Thresholding by ", df_thresh, " for ", subscale
@@ -241,7 +241,7 @@ ppv_sens_plot <- function(subscale, ACE_items, CTQ_items){
 make_confMatrix_table <- function(df_items, ace_items, ctq_items, thresh){
   gen_item_thresh(df_items, ace_items, ctq_items, thresh=thresh)
   gen_confMatrix(df_thresh = df_item_thresh, subscale, thresh_process = paste("one or more items >=", thresh))
-  #confMatrix$`Predicted ACE` <- as.factor(confMatrix$`Predicted ACE`)
-  #confMatrix$`Actual ACE` <- as.factor(confMatrix$`Actual ACE`)
+  confMatrix$`Predicted ACE` <- as.factor(confMatrix$`Predicted ACE`)
+  confMatrix$`Actual ACE` <- as.factor(confMatrix$`Actual ACE`)
   #confMatrix <- as.table(confMatrix)
 }

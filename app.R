@@ -7,11 +7,11 @@ library(tidyverse)
 library(plotly)
 library(ggplot2)
 library(shiny)
-source("~/Box\ Sync/code_cheng_ohsu/ctq-to-aces/shiny/helper.R")
+source("~/Box\ Sync/ctq-to-aces/ctq_to_aces_shiny/helper.R")
 
 # load data and information about each subscale
-df_items <- readRDS("~/Box\ Sync/code_cheng_ohsu/ctq-to-aces/shiny/df_items.rds")
-subscale_info <- readRDS("~/Box\ Sync/code_cheng_ohsu/ctq-to-aces/shiny/subscale_info.rds")
+df_items <- readRDS("~/Box\ Sync/ctq-to-aces/ctq_to_aces_shiny/df_items.rds")
+subscale_info <- readRDS("~/Box\ Sync/ctq-to-aces/ctq_to_aces_shiny/subscale_info.rds")
 
 # describe the app options
 pred_ops <- c("Item-based thresholding", "Subscale-based thresholding", "Logistic regression")
@@ -55,23 +55,39 @@ ui <- shinyUI(
         tags$li("Logistic regression:"),
         br(),
         h4("Tables & Figures"),
-        tableOutput("TF_pos_neg")
-        #plotOutput("SSPN"),
+        tableOutput("TF_pos_neg"),
+        br(),
+        plotOutput("SSPN")
         #plotOutput("ROC"))
         ))))
 
 
 server <- function(input, output) {
   
+  dataInput <- reactive({
+    idx = as.numeric(input$subscale)
+    subscale = subscale_info[[1]][idx]
+    ace_items = subscale_info[[2]][idx]
+    ctq_items = subscale_info[[3]][[idx]]
+    thresh_num = input$item_thresh
+    
+    make_confMatrix_table(df_items, ace_items, ctq_items, thresh_num) 
+    confMatrix$`Predicted ACE` <- as.factor(confMatrix$`Predicted ACE`)
+    confMatrix$`Actual ACE` <- as.factor(confMatrix$`Actual ACE`)
+  })
+  
     output$TF_pos_neg <- renderTable({
-      idx = as.numeric(input$subscale)
-      subscale = subscale_info[[1]][idx]
-      ace_items = subscale_info[[2]][idx]
-      ctq_items = subscale_info[[3]][[idx]]
-      thresh_num = input$item_thresh
-      
-      make_confMatrix_table(df_items, ace_items, ctq_items, thresh_num)
+      dataInput()
+      confMatrix
       })
+
+    output$SSPN <- renderPlot({
+      dataInput()
+      sens_spec_ppv_npv(confMatrix, subscale, return_df = 1)
+      
+      ggplot(stats, aes(x = V1, y = Number, fill = V1)) + 
+        geom_col()
+    })
     
 }
 
