@@ -144,14 +144,16 @@ roc_plot <- function(df, subscale, ace_items, ctq_items){
   
   df_subscale <- left_join(ace_temp, ctq_temp, by = "Username")
   
-  ggplot(df_subscale, aes(d = score, m = total_score)) + 
-    geom_roc() + 
+  basicPlot <-  ggplot(df_subscale, aes(d = score, m = total_score)) + 
+    geom_roc()
+  
+  roc_plot_clean <- basicPlot +
     annotate("text", x = .75, y = .25, 
-          label = paste("AUC =", round(calc_auc(basicplot)$AUC, 3))) + 
+          label = paste("AUC =", round(calc_auc(basicPlot)$AUC, 3)), size = 5) + 
     xlab("False positive fraction (1 - spec)") + ylab("True positive fraction (sens)") + 
     theme(text = element_text(face = "bold", size = 14), 
-          axis.title.x = element_text(margin = margin(t = 15, r = 0, b = 0, l = 0)), 
-          axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)), 
+          axis.title.x = element_text(margin = margin(t = 15, r = 0, b = 0, l = 0), size = 16), 
+          axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0), size = 16), 
           panel.background = element_rect(fill = "white", size = 0.5, linetype = "solid"),
           panel.grid.major = element_line(size = 0.5, linetype = 'solid',
                                           colour = "gainsboro"))
