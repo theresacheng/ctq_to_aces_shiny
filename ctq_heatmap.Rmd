@@ -1,0 +1,183 @@
+---
+title: "ctq_heatmap"
+author: "Theresa Cheng"
+date: "June 20, 2018"
+output: html_document
+---
+---
+title: "graph_briefs"
+author: "Theresa Cheng"
+date: "May 15, 2018"
+output:
+  word_document: default
+  html_document: default
+---
+
+## Okay, gimmie a hot sec to organize the data
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#devtools::install_github("sachsmc/plotROC")
+packages = c("tidyverse", "knitr", "ggplot2", "pander", "plyr", "data.table", "plotROC", "skimr", "reshape2")
+
+# load packages, install as needed
+package.check <- lapply(packages, FUN = function(x) {
+  if (!require(x, character.only = TRUE)) {
+    install.packages(x, dependencies = TRUE)
+    library(x, character.only = TRUE) }})
+
+df <- readRDS("~/Box\ Sync/ctq-to-aces/teicher_ACE_CTQ_long.rds")
+df$score = as.numeric(df$score)
+df_items <- df[grepl("CTQ_\\d+_\\w*", df$item) | grepl("ACE_\\d+_\\w*", df$item), ] # create a version of the dataframe with NO age or summary subscale scores from the CTQ -- in effect, "items only"
+
+source("~/Box\ Sync/ctq-to-aces/functions.R")
+
+```
+
+```{r organize subscale information, include = FALSE, warning = FALSE}
+
+# organize scale and corresponding ace/ctq items in one dataframe
+ctq_items = list( # EA
+                c("CTQ_3_calledstupid", 
+                   "CTQ_8_neverbeenborn", 
+                   "CTQ_14_familyinsulting",
+                   "CTQ_18_familyhatedme",
+                   "CTQ_25_emotionallyabused"),
+                 # PA
+                 c("CTQ_17_beatenbadly",
+                   "CTQ_9_hithard",
+                   "CTQ_11_leftwithbruises",
+                   "CTQ_12_punishedwithbelt",
+                   "CTQ_15_physicallyabused"),
+                 # SA
+                 c("CTQ_20_touchsexual",
+                   "CTQ_21_threatenedsexual",
+                   "CTQ_23_watchsexualthings",
+                   "CTQ_24_molested",
+                   "CTQ_27_sexuallyabused"), 
+                 # EN
+                 c("CTQ_5_helpedfeelspecial",
+                   "CTQ_7_feltloved",
+                   "CTQ_13_familylookedout",
+                   "CTQ_19_familyclose",
+                   "CTQ_28_familystrength"),
+                 # PN
+                 c("CTQ_1_notenoughtoeat",
+                   "CTQ_2_protectme",
+                   "CTQ_6_weardirtyclothes",
+                   "CTQ_26_takemetodoctor",
+                   "CTQ_4_parentstoodrunk"))
+
+subscale_info = list(scales = c("EA", "PA", "SA", "EN", "PN"), 
+                     ace_items = c("ACE_1_swearOrAfraid", "ACE_2_pushOrHit", "ACE_3_touchOrSex", "ACE_4_NoLoveOrSupport", "ACE_5_NoFoodOrDrunk"),
+                     ctq_items = ctq_items,
+                     low_thresh = c(9,8,6,10,8), # lower bound of the low exposure
+                     mod_thresh = c(13,10,8,15,10)) # lower bound of moderate exposure
+```
+
+## Descriptive statistics
+These basic descriptives are I feel best shared in a table if at all - these will not be one of my graphs.
+```{r call descriptive functions, warning = FALSE}
+
+descriptives <- df[ , c("item", "score")] %>% 
+  group_by(item) %>% 
+  skim()
+descriptives
+
+numEndorsed(df_items, item, score, "Number of participants endorsing each item on the CTQ and ACE questionnaire")
+```
+
+# getting to the good stuff
+
+```{r making a heatmap}
+
+ctq_grouped <- unlist(ctq_items)
+
+ctq_temp <- df %>% 
+  filter(startsWith(item, "CTQ")) %>% 
+  filter(!(item %in% (c("CTQ_EA", "CTQ_PA", "CTQ_SA", "CTQ_EN", "CTQ_PN", "CTQ_EA_severity", "CTQ_PA_severity", "CTQ_SA_severity", "CTQ_EN_severity", "CTQ_PN_severity", "CTQ_10_nothingtochange", "CTQ_16_perfectchildhood", "CTQ_22_bestfamily")))) %>% 
+  spread(item, score)
+
+ctq_temp <- ctq_temp[, 3:length(ctq_temp)]
+
+colnames(ctq_temp) = c("EA, 3", "EA, 8 ", "EA, 14", "EA, 18", "EA, 25", "PA, 17", "PA, 9" , "PA, 11", "PA, 12", "PA, 15", "SA, 20", "SA, 21", "SA, 23", "SA, 24", "SA, 27", "EN, 5" , "EN, 7" , "EN, 13", "EN, 19", "EN, 20", "PN, 1" , "PN, 2" , "PN, 6" , "PN, 26", "PN, 4")
+
+ctq_temp <- ctq_temp[, match(ctq_grouped, names(ctq_temp))]
+
+ctq_corr <- round(cor(ctq_temp[, 3:length(ctq_temp)], use = "na.or.complete"), 2)
+melted_ctq_corr <- melt(ctq_corr)
+
+library(viridis)
+
+ggplot(data = melted_ctq_corr, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() + 
+  scale_fill_viridis() +
+  xlab("Subscale, CTQ item number") + ylab("Subscale, CTQ item number") +
+  labs(fill =  "Correlation") + 
+  theme(axis.title.x = element_text(margin = margin(t = 15, r = 0, b = 0, l = 0), size = 16), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0), size = 16), 
+        legend.text= element_text(size = 10)) +
+  ggtitle("Heatmap of CTQ item correlations ordered by subscale")
+
+```
+
+# lower resolution subscale correlations 
+
+```{r subscale correlations}
+ctq_grouped <- unlist(ctq_items)
+
+ctq_temp <- df %>% 
+  filter(startsWith(item, "CTQ")) %>% 
+  filter((item %in% (c("CTQ_EA", "CTQ_PA", "CTQ_SA", "CTQ_EN", "CTQ_PN")))) %>%  #"CTQ_EA_severity", "CTQ_PA_severity", "CTQ_SA_severity", "CTQ_EN_severity", "CTQ_PN_severity")))) 
+  spread(item, score)
+
+colnames(ctq_temp) = c("EA, 3", "EA, 8 ", "EA, 14", "EA, 18", "EA, 25", "PA, 17", "PA, 9" , "PA, 11", "PA, 12", "PA, 15", "SA, 20", "SA, 21", "SA, 23", "SA, 24", "SA, 27", "EN, 5" , "EN, 7" , "EN, 13", "EN, 19", "EN, 20", "PN, 1" , "PN, 2" , "PN, 6" , "PN, 26", "PN, 4")
+
+ctq_temp <- ctq_temp[, match(ctq_grouped, names(ctq_temp))]
+
+ctq_corr <- round(cor(ctq_temp[, 3:length(ctq_temp)], use = "na.or.complete"), 2)
+melted_ctq_corr <- melt(ctq_corr)
+
+library(viridis)
+
+ggplot(data = melted_ctq_corr, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() + 
+  scale_fill_viridis() +
+  xlab("Subscale") + ylab("Subscale") +
+  labs(fill =  "Correlation") + 
+  theme(axis.title.x = element_text(margin = margin(t = 15, r = 0, b = 0, l = 0), size = 16), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0), size = 16), 
+        legend.text= element_text(size = 10)) +
+  ggtitle("Heatmap of CTQ subscale correlations")
+
+```
+
+### 2. Description of the TYPE of graph (e.g. Bar chart, Sankey Dendogram, etc.).
+Heatmap
+
+### 3. Description of the DATA you used (either given to you or where you found it, what unique characteristics of the data, what quantitative and qualitative information is in the data set, etc.)
+
+To empirically validate this translation, I've identified an independent dataset. While Teicher & Parriger (2015) worked toward developing another scale, the Maltreatment and Abuse Chronology of Exposure (MACE), data on adversity exposures were collected on a sample of 1051 participants. A subset of 449 participants have completed both the CTQ and ACES, and my analyses describe the relationship between self-report across these two measures. 
+
+I will be looking across five domains of early adversity: emotional abuse, physical abuse, sexual abuse, emotional neglect, and physical neglect. For each of these domains, the ACE asks a lengthy, compound question about whether certain actions or feelings occurred often or not, and thus obtains a single binary yes/no response. In contrast, the CTQ provides higher resolution, asking for information about the frequency of events occurring on a scale on a Likert scale from 1 (never) to 5 (very often). Thus, this translation ultimately seeks to collapse the higher-resolution, continuous, and multiple measures on the CTQ to binary scores that correspond as closely as possible to ACE endorsement.
+
+### 4. Description of the AUDIENCE you are aiming for (including more detail than simply saying "a biochemist").
+This is for an audience of clinicians and researchers, including trainees, that may be interested in the subscale coherence of the CTQ in a population of young, predominantly white, adult undergraduates. 
+
+### 5. Representation Description: WHAT ARE YOU TRYING TO SHOW! Tell us about the graph, what it shows, how it can be used, definitions of different graph parts, etc.
+I am trying to depict the coherence of the subscales. Across the x and y axes are all items on the scale, and their correlation values are depicted via the shade of the color.
+
+### 6. How to read it & What to look for: How should a newbie to this graph approach interpreting it? What are the major highlights of the graph type?
+Lighter color squares suggest items with higher correlations. Lighter squares along the diagonal suggest higher correlations between items in the same subscale. 
+
+### 7. Presentation tips: address how annotation is/can be used, how color is/can be used, and how the general composition is arranged (how are things arranged, scale, etc.)
+Hijacking this section as more of a to-do list; Adjustments that I'd like to make include diversifying the color scale to make distinctions between various correlation values to be more obvious. I'd like to abbreviate all the item titles to just the number for legibility, and include a legend, and I'd like to label the x and y axes more appropriately. This graph requires a title.
+
+I have also thought about whether it'd be valuable at all to show correlations between each of the CTQ items and the ACE subscale score to which they correspond, perhaps in a second panel.
+
+### 8.  Variations and alternatives: are there common variations of this graph? How are they different, how are they used? Are there alternatives?
+Sometimes this information is presented in a massive table or with color circles instead of squares, and I have seen the use of asterisks and shapes to denote statistical signifcance of the correlation.
+
+### 9. How I created it: Methods section. How did you go about making this specific graph? 
+I subsetted the data down to the questionnaire that I was interested in (the CTQ), then correlated these values and used the ggplot tiles function to display these correlation values on a color gradient.
