@@ -11,8 +11,6 @@ library("ggplot2")
 library("kableExtra")
 library("plotROC")
 
-#install.packages("r-forge", repos = "http://R-Forge.R-project.org", lib = "Users/theresacheng/Library/R/3.2/library")
-
 #packages = c("dplyr", "tidyr", "shiny", "wesanderson", "ggplot2", "kableExtra", "plotROC")
 
 #package.check <- lapply(packages, FUN = function(x) {
