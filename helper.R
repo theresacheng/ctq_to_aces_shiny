@@ -52,7 +52,7 @@ gen_subscale_thresh <- function(df, ace_items, ctq_items, thresh, inc_total_scor
     dplyr::summarise(mean_score = mean(score, na.rm = TRUE))
   
   username_temp <- ctq_temp[is.na(ctq_temp$score), ]$Username
-  ctq_temp[is.na(ctq_temp$score), ]$score <-round(ctq_mean[ctq_mean$Username == username_temp, ]$mean_score, 0)
+  ctq_temp[is.na(ctq_temp$score), ]$score <- round(ctq_mean[ctq_mean$Username == username_temp, ]$mean_score, 0)
   
   ctq_temp <- ctq_temp %>% 
     dplyr::group_by(Username) %>%
@@ -137,6 +137,13 @@ roc_plot <- function(df, subscale, ace_items, ctq_items){
   ctq_temp <-filter(df, item %in% ctq_items)
   #ctq_temp$Username <- as.character(ctq_temp$Username)
   
+  ctq_mean <- ctq_temp %>% 
+    dplyr::group_by(Username) %>%
+    dplyr::summarise(mean_score = mean(score, na.rm = TRUE))
+  
+  username_temp <- ctq_temp[is.na(ctq_temp$score), ]$Username
+  ctq_temp[is.na(ctq_temp$score), ]$score <- round(ctq_mean[ctq_mean$Username == username_temp, ]$mean_score, 0)
+  
   # generate predicted_ace score based on exceeding subscale score threshold
   ctq_temp <- ctq_temp %>% 
     dplyr::group_by(Username) %>% 
@@ -150,7 +157,7 @@ roc_plot <- function(df, subscale, ace_items, ctq_items){
   roc_plot_clean <- basicPlot +
     annotate("text", x = .75, y = .25, 
           label = paste("AUC =", round(calc_auc(basicPlot)$AUC, 3)), size = 5) + 
-    xlab("False positive fraction (1 - spec)") + ylab("True positive fraction (sens)") + 
+    xlab("False positive fraction (1 - Spec)") + ylab("True positive fraction (Sens)") + 
     theme(text = element_text(face = "bold", size = 14), 
           axis.title.x = element_text(margin = margin(t = 15, r = 0, b = 0, l = 0), size = 16), 
           axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0), size = 16), 

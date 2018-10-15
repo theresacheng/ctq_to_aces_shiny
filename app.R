@@ -104,7 +104,7 @@ server <- function(input, output) {
     rownames(confMatrix_cro) <- c("Predicted ACE: TRUE", "Predicted ACE: FALSE")
     
     # display in html
-    kable(as.table(confMatrix_cro), "html", caption = paste("Number of subjects per category for predicted", subscale_info[[1]][as.numeric(input$subscale)])) %>%
+    kable(as.data.frame(confMatrix_cro), "html", caption = paste("Number of subjects per category for predicted", subscale_info[[1]][as.numeric(input$subscale)])) %>%
       kable_styling("striped", full_width = F)
     }
 
