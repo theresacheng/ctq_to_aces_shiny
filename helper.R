@@ -43,7 +43,7 @@ gen_item_thresh <- function(df, ace_items, ctq_items, thresh){
 # prediction is based on exceeding a certain threshold on the entire subscale
 gen_subscale_thresh <- function(df, ace_items, ctq_items, thresh, inc_total_score) {
   ace_temp <- filter(df, item %in% ace_items)
-  ctq_temp <-filter(df, item %in% ctq_items)
+  ctq_temp <- filter(df, item %in% ctq_items)
   ctq_temp$Username <- as.character(ctq_temp$Username)
   
   # generate predicted_ace score based on exceeding subscale score threshold
@@ -52,7 +52,7 @@ gen_subscale_thresh <- function(df, ace_items, ctq_items, thresh, inc_total_scor
     dplyr::summarise(mean_score = mean(score, na.rm = TRUE))
   
   username_temp <- ctq_temp[is.na(ctq_temp$score), ]$Username
-  ctq_temp[is.na(ctq_temp$score), ]$score <- round(ctq_mean[ctq_mean$Username == username_temp, ]$mean_score, 0)
+  ctq_temp[is.na(ctq_temp$score), ]$score <- round(ctq_mean[which(ctq_mean$Username %in% username_temp), ]$mean_score, 0)
   
   ctq_temp <- ctq_temp %>% 
     dplyr::group_by(Username) %>%
@@ -107,6 +107,12 @@ gen_confMatrix <- function(df_thresh, subscale, thresh_process){
   #return(pandoc.table(confMatrix, caption = full_caption))
 } 
 
+gen_confMatrix_test <- function(df_thresh, subscale, thresh_process){
+  # Note that tbl list dimension 1 = endorsed_aces ; tbl list dimension 2 = predicted_aces
+  confMatrix_test <<- data.table::as.data.table(table(df_thresh$predicted_ace, df_thresh$endorsed_ace))
+  data.table::setnames(confMatrix_test,c("V1", "V2", "N"), c("Predicted ACE", "Actual ACE", "Number"))
+}
+
 # this function evaluates the sensitivity and specificity of a particular subscale given a confusion matrix formatted as a [1:2][1:2] matrix
 sens_spec_ppv_npv <- function(confMatrix, subscale, thresh_process = "subscale", return_df = 1){
   # Label each cell of the table
@@ -142,7 +148,7 @@ roc_plot <- function(df, subscale, ace_items, ctq_items){
     dplyr::summarise(mean_score = mean(score, na.rm = TRUE))
   
   username_temp <- ctq_temp[is.na(ctq_temp$score), ]$Username
-  ctq_temp[is.na(ctq_temp$score), ]$score <- round(ctq_mean[ctq_mean$Username == username_temp, ]$mean_score, 0)
+  ctq_temp[is.na(ctq_temp$score), ]$score <-round(ctq_mean[which(ctq_mean$Username %in% username_temp), ]$mean_score, 0)
   
   # generate predicted_ace score based on exceeding subscale score threshold
   ctq_temp <- ctq_temp %>% 
@@ -167,18 +173,36 @@ roc_plot <- function(df, subscale, ace_items, ctq_items){
     
 }
 
-make_confMatrix_item <- function(df_items, ace_items, ctq_items, thresh){
-  gen_item_thresh(df_items, ace_items, ctq_items, thresh=thresh)
-  gen_confMatrix(df_thresh = df_item_thresh, subscale, thresh_process = paste("one or more items >=", thresh))
-  confMatrix$`Predicted ACE` <- as.factor(confMatrix$`Predicted ACE`)
-  confMatrix$`Actual ACE` <- as.factor(confMatrix$`Actual ACE`)
+make_confMatrix_item <- function(df, ace_items, ctq_items, thresh, train_or_test){
+  
+  if (train_or_test == "train"){
+    gen_item_thresh(df, ace_items, ctq_items, thresh)
+    gen_confMatrix(df_item_thresh, subscale, thresh_process = paste("one or more items >=", thresh))
+    confMatrix$`Predicted ACE` <- as.factor(confMatrix$`Predicted ACE`)
+    confMatrix$`Actual ACE` <- as.factor(confMatrix$`Actual ACE`)
+    
+   } else if (train_or_test == "test")  {
+     gen_item_thresh(df, ace_items, ctq_items, thresh)
+     gen_confMatrix_test(df_item_thresh, subscale, thresh_process = paste("one or more items >=", thresh))
+      confMatrix_test$`Predicted ACE` <- as.factor(confMatrix_test$`Predicted ACE`)
+      confMatrix_test$`Actual ACE` <- as.factor(confMatrix_test$`Actual ACE`)
+    }
 }
 
-make_confMatrix_subscale <- function(df_items, ace_items, ctq_items, thresh){
-  gen_subscale_thresh(df_items, ace_items, ctq_items, thresh=thresh, inc_total_score = 0)
-  gen_confMatrix(df_thresh = df_subscale_thresh, subscale, thresh_process = paste("one or more items >=", thresh))
-  confMatrix$`Predicted ACE` <- as.factor(confMatrix$`Predicted ACE`)
-  confMatrix$`Actual ACE` <- as.factor(confMatrix$`Actual ACE`)
+make_confMatrix_subscale <- function(df, ace_items, ctq_items, thresh, train_or_test){
+
+  if (train_or_test == "train"){
+    gen_subscale_thresh(df, ace_items, ctq_items, thresh=thresh, inc_total_score = 0)
+    gen_confMatrix(df_subscale_thresh, subscale, thresh_process = paste("one or more items >=", thresh))
+    confMatrix$`Predicted ACE` <- as.factor(confMatrix$`Predicted ACE`)
+    confMatrix$`Actual ACE` <- as.factor(confMatrix$`Actual ACE`)
+    
+  } else if (train_or_test == "test")  {
+    gen_subscale_thresh(df, ace_items, ctq_items, thresh=thresh, inc_total_score = 0)
+    gen_confMatrix_test(df_subscale_thresh, subscale, thresh_process = paste("one or more items >=", thresh))
+    confMatrix_test$`Predicted ACE` <- as.factor(confMatrix_test$`Predicted ACE`)
+    confMatrix_test$`Actual ACE` <- as.factor(confMatrix_test$`Actual ACE`)
+  }
 }
 
 #thresh <- .4 # if ACE value estimated from the equation exceeds this threshold, predicted_ACE = 1
@@ -189,6 +213,106 @@ make_confMatrix_LR <- function(df, ace_items, ctq_items, thresh, subscale){
   confMatrix$`Predicted ACE` <- as.factor(confMatrix$`Predicted ACE`)
   confMatrix$`Actual ACE` <- as.factor(confMatrix$`Actual ACE`)
 }
+
+#### FOR SVM OPTION
+
+gen_train_set <- function(df_train, ace_items, ctq_items){
+ 
+  # subset data to this variable
+  ace_temp <- filter(df_train, item %in% ace_items)
+  ctq_temp <-filter(df_train, item %in% ctq_items)
+  ctq_temp$Username <- as.character(ctq_temp$Username)
+  
+  # remove na from ace_temp
+  ace_temp <- filter(ace_temp, !is.na(ace_temp$score))
+  
+  # mean impute ctq
+  ctq_mean <- ctq_temp %>% 
+    dplyr::group_by(Username) %>%
+    dplyr::summarise(mean_score = mean(score, na.rm = TRUE))
+  
+  username_temp <- ctq_temp[is.na(ctq_temp$score), ]$Username
+  ctq_temp[is.na(ctq_temp$score), ]$score <- round(ctq_mean[which(ctq_mean$Username %in% username_temp), ]$mean_score, 0)
+  ctq_temp$score <- as.numeric(ctq_temp$score)
+  
+  # turn ctq_temp and ace_temp into a wide, merged dataframe
+  ace_temp_wide <- spread(ace_temp, item, score)
+  ace_temp_wide$Username <- as.character(ace_temp_wide$Username)
+  ctq_temp_wide <- spread(ctq_temp, item, score)
+  train_set <- left_join(ace_temp_wide, ctq_temp_wide, by = "Username")
+  train_set[, ace_items] <- factor(train_set[, ace_items])
+  
+  return(train_set)
+}
+
+gen_test_set <- function(df_test, ace_items, ctq_items){
+  # subset data to this variable
+  ace_temp <- filter(df_test, item %in% ace_items)
+  ctq_temp <-filter(df_test, item %in% ctq_items)
+  ctq_temp$Username <- as.character(ctq_temp$Username)
+  
+  # remove na from ace_temp
+  ace_temp <- filter(ace_temp, !is.na(ace_temp$score))
+  
+  # mean impute ctq
+  ctq_mean <- ctq_temp %>% 
+    dplyr::group_by(Username) %>%
+    dplyr::summarise(mean_score = mean(score, na.rm = TRUE))
+  
+  username_temp <- ctq_temp[is.na(ctq_temp$score), ]$Username
+  ctq_temp[is.na(ctq_temp$score), ]$score <- round(ctq_mean[which(ctq_mean$Username %in% username_temp), ]$mean_score, 0)
+  
+  # turn ctq_temp and ace_temp into a wide, merged dataframe
+  ace_temp_wide <- spread(ace_temp, item, score)
+  ace_temp_wide$Username <- as.character(ace_temp_wide$Username)
+  ctq_temp_wide <- spread(ctq_temp, item, score)
+  test_set <- left_join(ace_temp_wide, ctq_temp_wide, by = "Username")
+  test_set[, ace_items] <- factor(test_set[, ace_items])
+  
+  return(test_set)
+}
+
+gen_svm_model <- function(train_set, ace_items, ctq_items){
+  outcome_name <- ace_items
+  predictors <- ctq_items
+  
+  # run parameter tuning
+  fitControl <- trainControl(
+    method = "repeatedcv",
+    number = 5,
+    repeats = 5)
+  
+  grid <- expand.grid(C = c(.75, .9, 1, 1.1, 1.25))
+  
+  train_set[, predictors] <- sapply(train_set[, predictors], as.numeric)
+  
+  model_svm <- train(train_set[, predictors], train_set[, outcome_name], method = 'svmLinear', trControl = fitControl, tuneGrid = grid)
+  
+  return(model_svm)
+}
+
+gen_accuracy <- function(model_svm, data_set, ace_items, ctq_items){
+  outcome_name <- ace_items
+  predictors <- ctq_items
+  
+  predictions <- predict.train(object = model_svm, data_set[, predictors], type = "raw")
+  confMatrix <- confusionMatrix(predictions, data_set[, outcome_name])
+  return(confMatrix)
+}
+
+gen_confMatrix_SVM <- function(confMatrix_raw, train_or_test){
+  confMatrix <- data.table(
+    'Predicted ACE' = c("FALSE", "TRUE", "FALSE", "TRUE"),
+    'Actual ACE' = c("FALSE", "FALSE", "TRUE", "TRUE"),
+    'Number' = c(confMatrix_raw$table[[1]], confMatrix_raw$table[[2]], confMatrix_raw$table[[3]], confMatrix_raw$table[[4]]))
+  
+  if (train_or_test == "train"){
+    confMatrix <<- confMatrix
+  } else if (train_or_test == "test")  {
+    confMatrix_test <<- confMatrix
+  }
+}
+
 
 ### NOT USED IN THE APP
 
