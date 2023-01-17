@@ -66,7 +66,7 @@ ui <- shinyUI(
     
       mainPanel(
         p("Two of the most common surveys used to evaluate childhood adversity are the Childhood Trauma Questionaire (CTQ) and Adverse Childhood Experience (ACE) questionnaire. For each of five maltreatment subscales, the CTQ has multiple items corresponding to a single ACE item."),
-        p("To test the correspondence of these scales, we apply different transformations of CTQ scores into a predicted ACE score and evaluate the quality of these predictions. The data are from a sample of 449 young adults who took both scales (Teicher & Parriger, 2015)."),
+        p("To test the correspondence of these scales, we apply different transformations of CTQ scores into a predicted ACE score and evaluate the quality of these predictions. The data are from a sample of 471 young adults who took both scales (Teicher & Parriger, 2015)."),
         tags$li("Item-based thresholding: Predict ACE endorsement if participants respond at or above threshold on one or more items on the corresponding CTQ subscale; thresholds are: (1) Never, (2) Rarely, (3) Sometimes, (4) Often, (5) Very Often"),
         tags$li("Subscale-based thresholding: Predict ACE endorsement if participants respond at or above a summed value on the corresponding CTQ subscale"),
         tags$li("Linear support-vector machine: Predict ACE endorsement from a machine learning algorithm based on items from the corresponding CTQ subscale"),
